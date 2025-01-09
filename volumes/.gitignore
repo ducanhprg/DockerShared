@@ -1,2 +1,9 @@
-*
+/grafana-data
+/jenkins-data
+/mysql-data
+/mongo-data
+/rabbitmq-data
+/redis-data
+/proxysql-data
+/tempo-traces
 !.gitignore
