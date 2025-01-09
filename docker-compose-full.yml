@@ -1,0 +1,192 @@
+version: '3.8'
+
+services:
+  # MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: ${MYSQL_CONTAINER_NAME}
+    restart: always
+    command: mysqld --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    ports:
+      - "${MYSQL_PORT}:3306"
+    volumes:
+      - ./volumes/mysql-data:/var/lib/mysql/:rw
+      - ${MYSQL_CONFIG_FILE}:/etc/mysql/conf.d/mysql.cnf:ro
+    networks:
+      - default
+
+  # Redis
+  redis:
+    image: redis:6.2-alpine
+    container_name: ${CACHE_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${CACHE_PORT}:6379"
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - ./volumes/redis-data:/data
+    networks:
+      - default
+
+  # Jenkins
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: ${JENKINS_CONTAINER_NAME}
+    restart: unless-stopped
+    privileged: true
+    user: root
+    ports:
+      - "${JENKINS_PORT}:8080"
+    volumes:
+      - ./volumes/jenkins-data:/var/jenkins_home
+    networks:
+      - default
+
+  # MongoDB
+  mongodb:
+    image: mongo:latest
+    container_name: ${MONGO_CONTAINER_NAME}
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "${MONGO_PORT}:27017"
+    volumes:
+      - ./volumes/mongo-data:/data/db
+      - ${MONGO_CONFIG_FILE}:/etc/mongo/mongod.conf
+    networks:
+      - default
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ${RABBITMQ_CONTAINER_NAME}
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+    volumes:
+      - ./volumes/rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - default
+
+  # Kong Gateway
+  kong:
+    image: kong:latest
+    container_name: ${KONG_CONTAINER_NAME}
+    restart: always
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: "/etc/kong/kong.yml"
+      KONG_PROXY_ACCESS_LOG: "/dev/stdout"
+      KONG_ADMIN_ACCESS_LOG: "/dev/stdout"
+      KONG_PROXY_ERROR_LOG: "/dev/stderr"
+      KONG_ADMIN_ERROR_LOG: "/dev/stderr"
+    ports:
+      - "${KONG_PROXY_PORT}:8000"
+      - "${KONG_PROXY_SSL_PORT}:8443"
+      - "${KONG_ADMIN_PORT}:8001"
+      - "${KONG_ADMIN_SSL_PORT}:8444"
+    volumes:
+      - ./kong.yml:/etc/kong/kong.yml
+    networks:
+      - default
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ${PROMETHEUS_CONTAINER_NAME}
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    networks:
+      - default
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ${GRAFANA_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    volumes:
+      - ./volumes/grafana-data:/var/lib/grafana
+    networks:
+      - default
+
+  # Loki
+  loki:
+    image: grafana/loki:latest
+    container_name: ${LOKI_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${LOKI_PORT}:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - default
+
+  # FluentBit
+  fluentbit:
+    image: fluent/fluent-bit:latest
+    container_name: ${FLUENTBIT_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${FLUENTBIT_PORT}:24224"
+    volumes:
+      - ./fluentbit.conf:/fluent-bit/etc/fluentbit.conf
+    command: /fluent-bit/bin/fluent-bit -c /fluent-bit/etc/fluentbit.conf
+    networks:
+      - default
+
+  # Tempo
+  tempo:
+    image: grafana/tempo:latest
+    container_name: ${TEMPO_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${TEMPO_PORT}:3200"
+    volumes:
+      - ./tempo-config.yml:/etc/tempo/tempo-config.yml
+    command: -config.file=/etc/tempo/tempo-config.yml
+    networks:
+      - default
+
+  # ProxySQL
+  proxysql:
+    image: proxysql/proxysql:latest
+    container_name: ${PROXYSQL_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${PROXYSQL_ADMIN_PORT}:6032"
+      - "${PROXYSQL_PROXY_PORT}:6033"
+    volumes:
+      - ./volumes/proxysql-data:/var/lib/proxysql
+      - ${PROXYSQL_CONFIG_FILE}:/etc/proxysql.cnf
+    networks:
+      - default
+
+volumes:
+  mysql-data:
+  redis-data:
+  jenkins-data:
+  mongo-data:
+  rabbitmq-data:
+  grafana-data:
+  proxysql-data:
+
+networks:
+  default:
+    driver: bridge
+    name: docker-network
