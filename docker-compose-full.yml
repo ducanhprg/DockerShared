@@ -162,6 +162,42 @@ services:
     networks:
       - default
 
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:latest
+    container_name: ${NGINX_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${NGINX_PORT}:80"
+    volumes:
+      - ./volumes/nginx-config:/etc/nginx/conf.d:ro
+    networks:
+      - default
+
+  # Terraform
+  terraform:
+    build:
+      context: ./configs/terraform
+    container_name: ${TERRAFORM_CONTAINER_NAME}
+    restart: no
+    volumes:
+      - ./volumes/terraform-data:/data
+    working_dir: /data
+    networks:
+      - default
+
+  # Ansible
+  ansible:
+    build:
+      context: ./configs/ansible
+    container_name: ${ANSIBLE_CONTAINER_NAME}
+    restart: no
+    volumes:
+      - ./volumes/ansible-data:/data
+    working_dir: /data
+    networks:
+      - default
+
 volumes:
   mysql-data:
   redis-data:
@@ -170,6 +206,9 @@ volumes:
   rabbitmq-data:
   grafana-data:
   proxysql-data:
+  nginx-config:
+  terraform-data:
+  ansible-data:
 
 networks:
   default:
