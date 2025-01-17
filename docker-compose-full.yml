@@ -166,7 +166,7 @@ services:
     ports:
       - "${TEMPO_PORT}:3200"
     volumes:
-      - ./volumes/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
+      - ./configs/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
       - ./volumes/tempo-traces:/tmp/traces
     command: -config.file=/etc/tempo/tempo-config.yaml
     networks:
