@@ -18,7 +18,7 @@ services:
 
   # Redis
   redis:
-    image: redis:6.2-alpine
+    image: redis:latest
     container_name: ${CACHE_CONTAINER_NAME}
     restart: always
     ports:
@@ -70,7 +70,7 @@ services:
       - "${RABBITMQ_PORT}:5672"
       - "${RABBITMQ_MANAGEMENT_PORT}:15672"
     volumes:
-      - ./volumes/rabbitmq-data:/var/lib/rabbitmq
+      - ./volumes/rabbitmq-data:/var/lib/rabbitmq:rw
     networks:
       - default
 
@@ -110,8 +110,26 @@ services:
     restart: always
     ports:
       - "${GRAFANA_PORT}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: Grafana123
+      GF_RENDERING_SERVER_URL: http://docker_grafana_renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://docker_grafana:3000/
+      GF_LOG_FILTERS: rendering:debug
     volumes:
       - ./volumes/grafana-data:/var/lib/grafana
+    networks:
+      - default
+
+  # Grafana renderer
+  grafana-renderer:
+    image: grafana/grafana-image-renderer:latest
+    container_name: ${GRAFANA_RENDERER_CONTAINER_NAME}
+    restart: always
+    expose:
+      - "${GRAFANA_RENDERER_PORT}:3000"
+    environment:
+      ENABLE_METRICS: "true"
     networks:
       - default
 
@@ -127,7 +145,12 @@ services:
 
   # FluentBit
   fluentbit:
-    image: fluent/fluent-bit:latest
+    environment:
+      LOG_LEVEL: debug
+      LOKI_URL: http://docker_loki:3100/loki/api/v1/push
+    build:
+      context: ./configs/fluent-bit
+      dockerfile: Dockerfile
     container_name: ${FLUENTBIT_CONTAINER_NAME}
     restart: always
     ports:

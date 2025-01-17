@@ -12,3 +12,7 @@ mkdir -p ./volumes/terraform-data
 mkdir -p ./volumes/ansible-data
 
 chmod -R 777 ./volumes
+
+# RabbitMQ
+chown 999:999 ./volumes/rabbitmq-data
+chmod -R 700 ./volumes/rabbitmq-data
