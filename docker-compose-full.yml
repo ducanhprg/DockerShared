@@ -23,7 +23,13 @@ services:
     restart: always
     ports:
       - "${CACHE_PORT}:6379"
-    command: redis-server --save 20 1 --loglevel warning
+    command: >
+      redis-server
+      --appendonly yes
+      --auto-aof-rewrite-percentage 50
+      --auto-aof-rewrite-min-size 64mb 
+      --save 60 1
+      --loglevel warning
     volumes:
       - ./volumes/redis-data:/data
     networks:
