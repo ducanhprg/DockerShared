@@ -1,5 +1,5 @@
 services:
-  # MySQL
+  # Databases & Caching
   mysql:
     image: mysql:8.0
     container_name: ${MYSQL_CONTAINER_NAME}
@@ -15,8 +15,33 @@ services:
       - ./volumes/mysql-data:/var/lib/mysql/:rw
     networks:
       - default
+  
+  proxysql:
+    image: proxysql/proxysql:latest
+    container_name: ${PROXYSQL_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${PROXYSQL_ADMIN_PORT}:6032"
+      - "${PROXYSQL_PROXY_PORT}:6033"
+    volumes:
+      - ./volumes/proxysql-data:/var/lib/proxysql
+    networks:
+      - default
 
-  # Redis
+  mongodb:
+    image: mongo:latest
+    container_name: ${MONGO_CONTAINER_NAME}
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "${MONGO_PORT}:27017"
+    volumes:
+      - ./volumes/mongo-data:/data/db
+    networks:
+      - default
+
   redis:
     image: redis:latest
     container_name: ${CACHE_CONTAINER_NAME}
@@ -35,36 +60,7 @@ services:
     networks:
       - default
 
-  # Jenkins
-  jenkins:
-    image: jenkins/jenkins:lts
-    container_name: ${JENKINS_CONTAINER_NAME}
-    restart: unless-stopped
-    privileged: true
-    user: root
-    ports:
-      - "${JENKINS_PORT}:8080"
-    volumes:
-      - ./volumes/jenkins-data:/var/jenkins_home
-    networks:
-      - default
-
-  # MongoDB
-  mongodb:
-    image: mongo:latest
-    container_name: ${MONGO_CONTAINER_NAME}
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-    ports:
-      - "${MONGO_PORT}:27017"
-    volumes:
-      - ./volumes/mongo-data:/data/db
-    networks:
-      - default
-
-  # RabbitMQ
+  # Message Queue & Broker
   rabbitmq:
     image: rabbitmq:3-management
     container_name: ${RABBITMQ_CONTAINER_NAME}
@@ -80,36 +76,18 @@ services:
     networks:
       - default
 
-  # Kong Gateway
-  kong:
-    image: kong:latest
-    container_name: ${KONG_CONTAINER_NAME}
-    restart: always
-    environment:
-      KONG_DATABASE: "off"
-      KONG_PROXY_ACCESS_LOG: "/dev/stdout"
-      KONG_ADMIN_ACCESS_LOG: "/dev/stdout"
-      KONG_PROXY_ERROR_LOG: "/dev/stderr"
-      KONG_ADMIN_ERROR_LOG: "/dev/stderr"
-    ports:
-      - "${KONG_PROXY_PORT}:8000"
-      - "${KONG_PROXY_SSL_PORT}:8443"
-      - "${KONG_ADMIN_PORT}:8001"
-      - "${KONG_ADMIN_SSL_PORT}:8444"
-    networks:
-      - default
-
-  # Prometheus
+  # Monitoring & Observability
   prometheus:
     image: prom/prometheus:latest
     container_name: ${PROMETHEUS_CONTAINER_NAME}
     restart: always
     ports:
       - "${PROMETHEUS_PORT}:9090"
+    volumes:
+      - ./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       - default
 
-  # Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: ${GRAFANA_CONTAINER_NAME}
@@ -123,11 +101,13 @@ services:
       GF_RENDERING_CALLBACK_URL: http://docker_grafana:3000/
       GF_LOG_FILTERS: rendering:debug
     volumes:
+      - ./configs/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./configs/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
       - ./volumes/grafana-data:/var/lib/grafana
     networks:
       - default
 
-  # Grafana renderer
+  # Grafana renderer: Only needed if we want to render images/pdfs or SSR of dashboard for reports
   grafana-renderer:
     image: grafana/grafana-image-renderer:latest
     container_name: ${GRAFANA_RENDERER_CONTAINER_NAME}
@@ -139,17 +119,18 @@ services:
     networks:
       - default
 
-  # Loki
   loki:
     image: grafana/loki:latest
     container_name: ${LOKI_CONTAINER_NAME}
     restart: always
     ports:
       - "${LOKI_PORT}:3100"
+    volumes:
+      - ./configs/loki/loki-config.yml:/etc/loki/config.yaml:ro
+      - ./volumes/loki-data:/loki
     networks:
       - default
 
-  # FluentBit
   fluentbit:
     environment:
       LOG_LEVEL: debug
@@ -161,16 +142,20 @@ services:
     restart: always
     ports:
       - "${FLUENTBIT_PORT}:24224"
+    volumes:
+      - /volumes/fluent-bit-data/containers:/var/log/docker:ro
+      - ./configs/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
     networks:
       - default
 
-  # Tempo
   tempo:
     image: grafana/tempo:latest
     container_name: ${TEMPO_CONTAINER_NAME}
     restart: always
     ports:
       - "${TEMPO_PORT}:3200"
+      - "${TEMPO_GRPC_PORT}:4317" 
+      - "${TEMPO_HTTP_PORT}:4318"
     volumes:
       - ./configs/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
       - ./volumes/tempo-traces:/tmp/traces
@@ -178,32 +163,20 @@ services:
     networks:
       - default
 
-  # ProxySQL
-  proxysql:
-    image: proxysql/proxysql:latest
-    container_name: ${PROXYSQL_CONTAINER_NAME}
-    restart: always
+  # CI/CD & Automation
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: ${JENKINS_CONTAINER_NAME}
+    restart: unless-stopped
+    privileged: true
+    user: root
     ports:
-      - "${PROXYSQL_ADMIN_PORT}:6032"
-      - "${PROXYSQL_PROXY_PORT}:6033"
+      - "${JENKINS_PORT}:8080"
     volumes:
-      - ./volumes/proxysql-data:/var/lib/proxysql
+      - ./volumes/jenkins-data:/var/jenkins_home
     networks:
       - default
 
-  # Nginx Load Balancer
-  nginx:
-    image: nginx:latest
-    container_name: ${NGINX_CONTAINER_NAME}
-    restart: always
-    ports:
-      - "${NGINX_PORT}:80"
-    volumes:
-      - ./volumes/nginx-config:/etc/nginx/conf.d:ro
-    networks:
-      - default
-
-  # Terraform
   terraform:
     build:
       context: ./configs/terraform
@@ -215,7 +188,6 @@ services:
     networks:
       - default
 
-  # Ansible
   ansible:
     build:
       context: ./configs/ansible
@@ -224,6 +196,41 @@ services:
     volumes:
       - ./volumes/ansible-data:/data
     working_dir: /data
+    networks:
+      - default
+
+  # API Gateway & Load Balancing
+  kong:
+    image: kong:latest
+    container_name: ${KONG_CONTAINER_NAME}
+    restart: always
+    environment:
+      KONG_DATABASE: "off"
+      KONG_PROXY_ACCESS_LOG: "/dev/stdout"
+      KONG_ADMIN_ACCESS_LOG: "/dev/stdout"
+      KONG_PROXY_ERROR_LOG: "/dev/stderr"
+      KONG_ADMIN_ERROR_LOG: "/dev/stderr"
+      KONG_PLUGINS: "bundled,opentelemetry"
+      KONG_OPENTELEMETRY_TRACING_ENABLED: "on"
+      KONG_OPENTELEMETRY_COLLECTOR_GRPC_ENDPOINT: "http://tempo:4317"
+      KONG_OPENTELEMETRY_COLLECTOR_HTTP_ENDPOINT: "http://tempo:4318"
+    ports:
+      - "${KONG_PROXY_PORT}:8000"
+      - "${KONG_PROXY_SSL_PORT}:8443"
+      - "${KONG_ADMIN_PORT}:8001"
+      - "${KONG_ADMIN_SSL_PORT}:8444"
+    networks:
+      - default
+
+
+  nginx:
+    image: nginx:latest
+    container_name: ${NGINX_CONTAINER_NAME}
+    restart: always
+    ports:
+      - "${NGINX_PORT}:80"
+    volumes:
+      - ./volumes/nginx-config:/etc/nginx/conf.d:ro
     networks:
       - default
 

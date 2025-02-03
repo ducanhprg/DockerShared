@@ -1,37 +1,27 @@
 server:
-  http_listen_port: 80
-  grpc_listen_port: 9095
+  http_listen_port: 3200
 
 distributor:
   receivers:
-    jaeger:
-      protocols:
-        grpc:
-        thrift_binary:
-        thrift_compact:
-        thrift_http:
     otlp:
       protocols:
         grpc:
         http:
 
 ingester:
-  lifecycler:
-    ring:
-      kvstore:
-        store: inmemory
-      replication_factor: 1
+  trace_idle_period: 10s
+  max_block_bytes: 10000000
+  max_block_duration: 5m
 
-compactor:
-  compaction:
-    block_retention: 48h
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+  processors:
+    service-graphs: {}
 
 storage:
   trace:
     backend: local
     local:
       path: /tmp/traces
-
-querier:
-  frontend_worker:
-    frontend_address: 127.0.0.1:9095

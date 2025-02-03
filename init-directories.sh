@@ -10,6 +10,8 @@ mkdir -p ./volumes/tempo-traces
 mkdir -p ./volumes/nginx-config
 mkdir -p ./volumes/terraform-data
 mkdir -p ./volumes/ansible-data
+mkdir -p ./volumes/loki-data
+mkdir -p ./volumes/fluent-bit-data
 
 chmod -R 777 ./volumes
 
